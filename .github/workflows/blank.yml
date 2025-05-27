@@ -51,6 +51,7 @@ jobs:
           pip install -r requirements.txt
           pip install flake8     
           pip install zappa
+          pip install pytest
           
       - name: Pytest and update
         run: |
