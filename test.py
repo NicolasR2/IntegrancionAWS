@@ -9,7 +9,7 @@ from botocore.exceptions import ClientError
 # --------- Lambda 1: descarga diarios y sube a S3 ---------
 
 # Supondremos que tu primer archivo se llama lambda1.py
-from proyecto import app 
+from proyecto import app as lambda1_app
 
 class DummyResponse:
     def __init__(self, status_code, content=b""):
@@ -38,7 +38,7 @@ def test_lambda1_success(fake_s3_client, fake_requests, monkeypatch):
     # Fijar datetime para predecir el timestamp
     fixed_dt = datetime(2025,5,27,12,0)
     monkeypatch.setattr("lambda1.datetime", type("dt", (), {"utcnow": staticmethod(lambda: fixed_dt), "strftime": datetime.strftime}))
-    app({}, {})
+    lambda1_app({}, {})
     # Debe descargar ambos diarios
     assert 'https://www.eltiempo.com' in fake_requests
     assert 'https://www.publimetro.co/' in fake_requests
@@ -52,7 +52,7 @@ def test_lambda1_download_error(monkeypatch, fake_s3_client):
     # Simular error 404
     monkeypatch.setattr("lambda1.requests.get", lambda url: DummyResponse(404))
     # No debe lanzar excepción
-    app({}, {})
+    lambda1_app({}, {})
 
 
 # --------- Lambda 2: procesa HTML y lanza tercera Lambda ---------
