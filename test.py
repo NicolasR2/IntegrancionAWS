@@ -180,7 +180,7 @@ def test_parse_eltiempo_ignores_imagenes():
 @patch("proyecto1.boto3.client")
 @patch("proyecto1.s3")
 def test_invoke_third_lambda(mock_s3, mock_boto_client, tmp_path):
-    from proyecto2 import app
+    from proyecto1 import app
 
     html = "<a href='/deportes/futbol/partido'>Noticia</a>"
     mock_s3.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(html)
