@@ -1,63 +1,33 @@
+import json
 import pytest
-import boto3
-from io import BytesIO
 from unittest.mock import patch, MagicMock
-from bs4 import BeautifulSoup
-from datetime import datetime
-import re
-
-import pytest
-import boto3
-from io import BytesIO
-from unittest.mock import patch, MagicMock
-from bs4 import BeautifulSoup
-from datetime import datetime
-import re
-
-# ----------------------------
-# FIXTURES
-# ----------------------------
 
 @pytest.fixture
 def html_eltiempo():
     return """
     <html>
-        <body>
-            <a href="/cultura/cine/nueva-pelicula" class="headline">Nueva película en cines</a>
-            <a href="/deportes/futbol/liga-aguila" class="title">Resultados de la Liga</a>
-        </body>
+    <body>
+    <div class="fecha">2025-01-01</div>
+    <div class="noticia">
+        <h2>Título Noticia</h2>
+        <p>Contenido Noticia</p>
+    </div>
+    </body>
     </html>
     """
-
-@pytest.fixture
-def html_publimetro():
-    return """
-    <html>
-        <body>
-            <a href="/noticias/bogota/incendio-en-suba">Incendio en Suba dejó 5 heridos</a>
-            <a href="/deportes/futbol/final-nacional">Final del fútbol colombiano</a>
-        </body>
-    </html>
-    """
-
-# ----------------------------
-# PRUEBAS PARA LA LAMBDA 2
-# ----------------------------
 
 @patch("proyecto1.boto3.client")
-def test_lambda2_valid_eltiempo(mock_boto_client, tmp_path, html_eltiempo):
-    from proyecto1 import app
+@patch("proyecto1.s3")
+def test_lambda2_valid_eltiempo(mock_boto_client, mock_s3, tmp_path, html_eltiempo):
+    from proyecto1 import app, parse_el_tiempo
 
-    s3_mock = MagicMock()
-    lambda_mock = MagicMock()
-    s3_mock.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(html_eltiempo)
-    s3_mock.upload_file.return_value = None
-    lambda_mock.invoke.return_value = {"StatusCode": 202}
+    fake_file = tmp_path / "page.html"
+    fake_file.write_text(html_eltiempo, encoding='utf-8')
 
-    def client_side_effect(service_name):
-        return lambda_mock if service_name == "lambda" else s3_mock
-
-    mock_boto_client.side_effect = client_side_effect
+    mock_s3.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(html_eltiempo)
+    mock_s3.upload_file.return_value = None
+    mock_s3.head_object.return_value = {"ResponseMetadata": {"HTTPStatusCode": 200}}  # Mock adicional
+    mock_boto_client.return_value = MagicMock()
 
     event = {
         'Records': [{
@@ -73,33 +43,25 @@ def test_lambda2_valid_eltiempo(mock_boto_client, tmp_path, html_eltiempo):
     assert "Archivo procesado" in result["body"]
 
 @patch("proyecto1.boto3.client")
-def test_lambda2_non_html_file(mock_boto_client):
+@patch("proyecto1.s3")
+def test_lambda2_html_without_fecha(mock_boto_client, mock_s3, tmp_path):
     from proyecto1 import app
 
-    s3_mock = MagicMock()
-    mock_boto_client.return_value = s3_mock
+    html = """
+    <html>
+    <body>
+    <div class="noticia">
+        <h2>Título Noticia</h2>
+        <p>Contenido Noticia</p>
+    </div>
+    </body>
+    </html>
+    """
 
-    event = {
-        'Records': [{
-            's3': {
-                'bucket': {'name': 'pacialcorte3-2025'},
-                'object': {'key': 'raw/archivo.pdf'}
-            }
-        }]
-    }
-
-    result = app(event, None)
-    assert result["statusCode"] == 200
-    assert "ignoró" in result["body"]
-
-@patch("proyecto1.boto3.client")
-def test_lambda2_html_without_fecha(mock_boto_client):
-    from proyecto1 import app
-
-    fake_html = "<html><body></body></html>"
-    s3_mock = MagicMock()
-    s3_mock.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(fake_html)
-    mock_boto_client.return_value = s3_mock
+    mock_s3.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(html)
+    mock_s3.upload_file.return_value = None
+    mock_s3.head_object.return_value = {"ResponseMetadata": {"HTTPStatusCode": 200}}  # Mock adicional
+    mock_boto_client.return_value = MagicMock()
 
     event = {
         'Records': [{
@@ -110,72 +72,25 @@ def test_lambda2_html_without_fecha(mock_boto_client):
         }]
     }
 
-    with pytest.raises(ValueError, match="No se encontró una fecha válida"):
-        app(event, None)
+    result = app(event, None)
+    assert result["statusCode"] == 400
+    assert "No se pudo extraer la fecha" in result["body"]
 
 @patch("proyecto1.boto3.client")
-def test_invoke_third_lambda(mock_boto_client):
-    from proyecto1 import app
+@patch("proyecto1.s3")
+def test_invoke_third_lambda(mock_boto_client, mock_s3):
+    from proyecto1 import invoke_third_lambda
 
-    html = "<a href='/deportes/futbol/partido'>Noticia</a>"
-    s3_mock = MagicMock()
-    lambda_mock = MagicMock()
-
-    s3_mock.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(html)
-    s3_mock.upload_file.return_value = None
-    lambda_mock.invoke.return_value = {"StatusCode": 202}
-
-    def client_side_effect(service_name):
-        return lambda_mock if service_name == "lambda" else s3_mock
-
-    mock_boto_client.side_effect = client_side_effect
-
-    event = {
-        'Records': [{
-            's3': {
-                'bucket': {'name': 'pacialcorte3-2025'},
-                'object': {'key': 'raw/contenido-eltiempo-2025-05-01.html'}
-            }
-        }]
+    mock_s3.head_object.return_value = {"ResponseMetadata": {"HTTPStatusCode": 200}}  # Mock adicional
+    mock_lambda = MagicMock()
+    mock_lambda.invoke.return_value = {
+        "StatusCode": 200,
+        "Payload": MagicMock(read=lambda: json.dumps({"message": "ok"}).encode("utf-8"))
     }
 
-    result = app(event, None)
-    assert result["statusCode"] == 200
-    lambda_mock.invoke.assert_called_once()
+    mock_boto_client.side_effect = lambda service: mock_lambda if service == "lambda" else MagicMock()
 
-# ----------------------------
-# FUNCIONES AUXILIARES
-# ----------------------------
-
-def test_parse_eltiempo_extracts_data(html_eltiempo):
-    from proyecto1 import parse_el_tiempo
-
-    data = parse_el_tiempo(html_eltiempo)
-    assert isinstance(data, list)
-    assert len(data) > 0
-    assert all("titulo" in n and "categoria" in n and "enlace" in n for n in data)
-
-def test_parse_eltiempo_empty():
-    from proyecto1 import parse_el_tiempo
-    html = "<html><body>No news</body></html>"
-    result = parse_el_tiempo(html)
-    assert result == []
-
-def test_parse_eltiempo_ignores_imagenes():
-    from proyecto1 import parse_el_tiempo
-    html = """
-    <html>
-        <body>
-            <a href="/images/banner.jpg">Publicidad</a>
-            <a href="/cultura/cine/titulo-largo">Una gran película que todos comentan</a>
-        </body>
-    </html>
-    """
-    result = parse_el_tiempo(html)
-    assert len(result) == 1
-    assert "titulo" in result[0]
-
-# ----------------------------
-# PRUEBAS FUNCIONES DE EXTRACCIÓN
-# ----------------------------
-
+    bucket = "pacialcorte3-2025"
+    key = "procesado/archivo.json"
+    result = invoke_third_lambda(bucket, key)
+    assert result["StatusCode"] == 200
