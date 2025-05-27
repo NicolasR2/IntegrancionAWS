@@ -46,11 +46,11 @@ def lambda_mock_client():
 # ----------------------------
 # PRUEBAS PARA LA LAMBDA 1
 # ----------------------------
-@patch("lambda1.requests.get")
-@patch("lambda1.s3")
+@patch("proyecto.requests.get")
+@patch("proyecto.s3")
 def test_lambda1_success(mock_s3, mock_get):
     """Prueba que verifica si los archivos HTML se descargan y suben correctamente"""
-    from lambda1 import app
+    from proyecto import app
     
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -62,11 +62,11 @@ def test_lambda1_success(mock_s3, mock_get):
     assert mock_get.call_count == 2
     assert mock_s3.put_object.call_count == 2
 
-@patch("lambda1.requests.get")
-@patch("lambda1.s3")
+@patch("proyecto.requests.get")
+@patch("proyecto.s3")
 def test_lambda1_fails_on_request(mock_s3, mock_get):
     """Simula falla en la descarga HTTP"""
-    from lambda1 import app
+    from proyecto import app
     
     mock_resp = MagicMock()
     mock_resp.status_code = 404
@@ -78,11 +78,11 @@ def test_lambda1_fails_on_request(mock_s3, mock_get):
 # ----------------------------
 # PRUEBAS PARA LA LAMBDA 2
 # ----------------------------
-@patch("lambda2.s3")
-@patch("lambda2.boto3.client")
+@patch("proyecto1.s3")
+@patch("proyecto1.boto3.client")
 def test_lambda2_valid_eltiempo(mock_boto_client, mock_s3, tmp_path, html_eltiempo):
     """Prueba correcta con archivo de El Tiempo"""
-    from lambda2 import app, parse_el_tiempo
+    from proyecto1 import app, parse_el_tiempo
 
     fake_file = tmp_path / "page.html"
     fake_file.write_text(html_eltiempo, encoding='utf-8')
@@ -106,17 +106,17 @@ def test_lambda2_valid_eltiempo(mock_boto_client, mock_s3, tmp_path, html_eltiem
     assert "Archivo procesado" in result["body"]
 
 def test_parse_eltiempo_extracts_data(html_eltiempo):
-    from lambda2 import parse_el_tiempo
+    from proyecto1 import parse_el_tiempo
 
     data = parse_el_tiempo(html_eltiempo)
     assert isinstance(data, list)
     assert len(data) > 0
     assert all("titulo" in n and "categoria" in n and "enlace" in n for n in data)
 
-@patch("lambda2.s3")
+@patch("proyecto1.s3")
 def test_lambda2_non_html_file(mock_s3):
     """Prueba cuando el archivo no es HTML"""
-    from lambda2 import app
+    from proyecto1 import app
 
     event = {
         'Records': [{
@@ -131,10 +131,10 @@ def test_lambda2_non_html_file(mock_s3):
     assert result["statusCode"] == 200
     assert "ignoró" in result["body"]
 
-@patch("lambda2.s3")
+@patch("proyecto1.s3")
 def test_lambda2_html_without_fecha(mock_s3, tmp_path):
     """Prueba cuando el nombre del archivo no tiene fecha válida"""
-    from lambda2 import app
+    from proyecto1 import app
     fake_html = "<html><body></body></html>"
     mock_s3.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(fake_html)
 
@@ -155,13 +155,13 @@ def test_lambda2_html_without_fecha(mock_s3, tmp_path):
 # ----------------------------
 
 def test_parse_eltiempo_empty():
-    from lambda2 import parse_el_tiempo
+    from proyecto1 import parse_el_tiempo
     html = "<html><body>No news</body></html>"
     result = parse_el_tiempo(html)
     assert result == []
 
 def test_parse_eltiempo_ignores_imagenes():
-    from lambda2 import parse_el_tiempo
+    from proyecto1 import parse_el_tiempo
     html = """
     <html>
         <body>
@@ -177,10 +177,10 @@ def test_parse_eltiempo_ignores_imagenes():
 # ----------------------------
 # PRUEBA INVOCACIÓN A TERCERA LAMBDA
 # ----------------------------
-@patch("lambda2.boto3.client")
-@patch("lambda2.s3")
+@patch("proyecto1.boto3.client")
+@patch("proyecto1.s3")
 def test_invoke_third_lambda(mock_s3, mock_boto_client, tmp_path):
-    from lambda2 import app
+    from proyecto2 import app
 
     html = "<a href='/deportes/futbol/partido'>Noticia</a>"
     mock_s3.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(html)
