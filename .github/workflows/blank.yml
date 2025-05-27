@@ -52,7 +52,11 @@ jobs:
           pip install flake8     
           pip install zappa
           
-
+      - name: Pytest and update
+        run: |
+          source env/bin/activate
+          pytest test.py
+          
       - name: update dev y dev2
         run: |
           source env/bin/activate
