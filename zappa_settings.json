@@ -1,0 +1,113 @@
+{
+    "dev": {
+        "app_function": "proyecto.app",
+        "aws_region": "us-east-1",
+        "exclude": [
+            "boto3",
+            "dateutil",
+            "botocore",
+            "s3transfer",
+            "concurrent"
+        ],
+        "project_name": "casas",
+        "runtime": "python3.10",
+        "s3_bucket": "zappa-kpk1mm5he",
+        "keep_warm": false,
+        "apigateway_enabled": false,
+        "manage_roles": false,
+        "role_name": "LabRole",
+        "events": [
+            {
+                "function": "proyecto.app",
+                "expression": "rate(3 minutes)"
+            }
+        ]
+    },
+
+    "dev2": {
+        "app_function": "proyecto1.app",
+        "aws_region": "us-east-1",
+        "exclude": [
+            "boto3",
+            "dateutil",
+            "botocore",
+            "s3transfer",
+            "concurrent"
+        ],
+        "project_name": "lambda_processor",
+        "runtime": "python3.10",
+        "s3_bucket": "zappa-bucket-xxx",
+        "keep_warm": false,
+        "apigateway_enabled": false,
+        "manage_roles": false,
+        "role_name": "LabRole",
+        "events": [
+            {
+                "function": "proyecto1.app",
+                "event_source": {
+                    "arn": "arn:aws:s3:::pacialcorte3-2025",
+                    "events": ["s3:ObjectCreated:*"]
+                    "filters": {
+                "Key": {
+                    "FilterRules": [
+                        {
+                            "Name": "prefix",
+                            "Value": "raw/"
+                        },
+                        {
+                            "Name": "suffix",
+                            "Value": ".html"
+                        }
+                    ]
+                }
+            }
+                }
+            }
+        ] 
+    },
+    "dev3": {
+        "app_function": "proyecto2.app",
+        "aws_region": "us-east-1",
+        "exclude": [
+            "boto3",
+            "dateutil",
+            "botocore",
+            "s3transfer",
+            "concurrent"
+        ],
+        "project_name": "lambda_333",
+        "runtime": "python3.10",
+        "s3_bucket": "zappa-bucket-571",
+        "keep_warm": false,
+        "apigateway_enabled": false,
+        "manage_roles": false,
+        "role_name": "LabRole",
+        "events": [
+            {
+                "function": "proyecto2.app",
+                "event_source": {
+                    "arn": "arn:aws:s3:::pacialcorte3-2025",
+                    "events": ["s3:ObjectCreated:*"]
+                    "filters": {
+                "Key": {
+                    "FilterRules": [
+                        {
+                            "Name": "prefix",
+                            "Value": "final/"
+                        },
+                        {
+                            "Name": "suffix",
+                            "Value": ".csv"
+                        }
+                    ]
+                }
+            }
+                }
+            }
+        ] 
+    }
+}
+
+
+
+
