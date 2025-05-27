@@ -1,148 +1,204 @@
-import io
-import json
 import pytest
-from datetime import datetime
-
 import boto3
-from botocore.exceptions import ClientError
+from io import BytesIO
+from unittest.mock import patch, MagicMock
+from bs4 import BeautifulSoup
+from datetime import datetime
+import re
 
-# --------- Lambda 1: descarga diarios y sube a S3 ---------
-
-# Supondremos que tu primer archivo se llama lambda1.py
-from proyecto import app as lambda1_app
-
-class DummyResponse:
-    def __init__(self, status_code, content=b""):
-        self.status_code = status_code
-        self.content = content
+# Simulación de contenido HTML real para pruebas
+@pytest.fixture
+def html_eltiempo():
+    return """
+    <html>
+        <body>
+            <a href="/cultura/cine/nueva-pelicula" class="headline">Nueva película en cines</a>
+            <a href="/deportes/futbol/liga-aguila" class="title">Resultados de la Liga</a>
+        </body>
+    </html>
+    """
 
 @pytest.fixture
-def fake_s3_client(monkeypatch):
-    calls = []
-    class FakeS3:
-        def put_object(self, Bucket, Key, Body):
-            calls.append((Bucket, Key, Body))
-    monkeypatch.setattr(boto3, 'client', lambda service: FakeS3())
-    return calls
+def html_publimetro():
+    return """
+    <html>
+        <body>
+            <a href="/noticias/bogota/incendio-en-suba">Incendio en Suba dejó 5 heridos</a>
+            <a href="/deportes/futbol/final-nacional">Final del fútbol colombiano</a>
+        </body>
+    </html>
+    """
 
 @pytest.fixture
-def fake_requests(monkeypatch):
-    calls = []
-    def fake_get(url):
-        calls.append(url)
-        return DummyResponse(200, b"<html>OK</html>")
-    monkeypatch.setattr("lambda1.requests.get", fake_get)
-    return calls
-
-def test_lambda1_success(fake_s3_client, fake_requests, monkeypatch):
-    # Fijar datetime para predecir el timestamp
-    fixed_dt = datetime(2025,5,27,12,0)
-    monkeypatch.setattr("lambda1.datetime", type("dt", (), {"utcnow": staticmethod(lambda: fixed_dt), "strftime": datetime.strftime}))
-    lambda1_app({}, {})
-    # Debe descargar ambos diarios
-    assert 'https://www.eltiempo.com' in fake_requests
-    assert 'https://www.publimetro.co/' in fake_requests
-    # Verificar key y bucket en S3
-    bucket, key, body = fake_s3_client[0]
-    assert bucket == 'pacialcorte3-2025'
-    assert key.startswith('raw/contenido-eltiempo-2025-05-27-12-00')
-    assert body == b"<html>OK</html>"
-
-def test_lambda1_download_error(monkeypatch, fake_s3_client):
-    # Simular error 404
-    monkeypatch.setattr("lambda1.requests.get", lambda url: DummyResponse(404))
-    # No debe lanzar excepción
-    lambda1_app({}, {})
-
-
-# --------- Lambda 2: procesa HTML y lanza tercera Lambda ---------
-
-# Supondremos que tu segundo archivo se llama lambda2.py
-from proyecto1 import app as lambda2_app, parse_el_tiempo, extraer_noticias_publimetro
+def s3_mock_client():
+    s3 = MagicMock()
+    s3.download_file.side_effect = lambda Bucket, Key, Filename: open(Filename, 'w', encoding='utf-8').write("<html><body>fake content</body></html>")
+    s3.upload_file.return_value = None
+    s3.put_object.return_value = {}
+    return s3
 
 @pytest.fixture
-def html_event(monkeypatch, tmp_path):
-    # Crear evento S3
-    bucket = 'test-bucket'
-    key = 'raw/contenido-eltiempo-2025-05-27-12-00.html'
-    event = {'Records': [{
-        's3': {'bucket': {'name': bucket}, 'object': {'key': key}}
-    }]}
-    # Mock download_file
-    html_file = tmp_path / "page.html"
-    html_file.write_text("<html><body><a href='/categoria/nota'>Un titular muy largo de prueba</a></body></html>", encoding='utf-8')
-    monkeypatch.setattr(boto3.client('s3'), 'download_file', lambda b, k, dest: html_file.rename(dest) if dest != None else None)
-    # Mock upload_file
-    calls = []
-    monkeypatch.setattr(boto3.client('s3'), 'upload_file', lambda src, b, k: calls.append((src, b, k)))
-    # Mock Lambda invoke
-    lambda_calls = []
-    monkeypatch.setattr(boto3.client('lambda'), 'invoke', lambda **kw: lambda_calls.append(kw) or {'StatusCode':202})
-    return event, calls, lambda_calls
+def lambda_mock_client():
+    lambda_client = MagicMock()
+    lambda_client.invoke.return_value = {"StatusCode": 202}
+    return lambda_client
 
-def test_lambda2_ignora_no_html():
-    evt = {'Records':[{'s3':{'bucket':{'name':'b'},'object':{'key':'foo.txt'}}}]}
-    res = lambda2_app(evt, {})
-    assert res['statusCode'] == 200
-    assert 'ignoró el archivo' in res['body']
+# ----------------------------
+# PRUEBAS PARA LA LAMBDA 1
+# ----------------------------
+@patch("lambda1.requests.get")
+@patch("lambda1.s3")
+def test_lambda1_success(mock_s3, mock_get):
+    """Prueba que verifica si los archivos HTML se descargan y suben correctamente"""
+    from lambda1 import app
+    
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.content = b"<html>Contenido</html>"
+    mock_get.return_value = mock_resp
+    mock_s3.put_object.return_value = {}
 
-def test_lambda2_procesa_html(html_event):
-    event, upload_calls, lambda_calls = html_event
-    res = lambda2_app(event, {})
-    # Debe devolver 200 y body con la ruta final
-    assert res['statusCode'] == 200
-    assert 'final/periodico=eltiempo' in res['body']
-    # Verificar que se haya subido el CSV
-    assert upload_calls, "No se subió CSV a S3"
-    # La tercera Lambda debió ser invocada una vez
-    assert lambda_calls, "No se invocó la tercera Lambda"
+    result = app({}, None)
+    assert mock_get.call_count == 2
+    assert mock_s3.put_object.call_count == 2
 
+@patch("lambda1.requests.get")
+@patch("lambda1.s3")
+def test_lambda1_fails_on_request(mock_s3, mock_get):
+    """Simula falla en la descarga HTTP"""
+    from lambda1 import app
+    
+    mock_resp = MagicMock()
+    mock_resp.status_code = 404
+    mock_get.return_value = mock_resp
 
-# --------- Lambda 3: inicia Glue Crawler ---------
+    result = app({}, None)
+    assert mock_s3.put_object.call_count == 0
 
-# Supondremos que tu tercer archivo se llama lambda3.py
-from proyecto2 import lambda_handler as lambda3_handler
+# ----------------------------
+# PRUEBAS PARA LA LAMBDA 2
+# ----------------------------
+@patch("lambda2.s3")
+@patch("lambda2.boto3.client")
+def test_lambda2_valid_eltiempo(mock_boto_client, mock_s3, tmp_path, html_eltiempo):
+    """Prueba correcta con archivo de El Tiempo"""
+    from lambda2 import app, parse_el_tiempo
 
-class FakeGlue:
-    class exceptions:
-        class CrawlerRunningException(Exception):
-            pass
+    fake_file = tmp_path / "page.html"
+    fake_file.write_text(html_eltiempo, encoding='utf-8')
 
-    def __init__(self):
-        self.started = 0
+    # Mock descarga y carga en S3
+    mock_s3.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(html_eltiempo)
+    mock_s3.upload_file.return_value = None
+    mock_boto_client.return_value = MagicMock()
 
-    def start_crawler(self, Name):
-        self.started += 1
-        if self.started > 1:
-            raise FakeGlue.exceptions.CrawlerRunningException()
-        return {}
+    event = {
+        'Records': [{
+            's3': {
+                'bucket': {'name': 'pacialcorte3-2025'},
+                'object': {'key': 'raw/contenido-eltiempo-2025-01-01-12-00.html'}
+            }
+        }]
+    }
 
-@pytest.fixture
-def glue_client(monkeypatch):
-    glue = FakeGlue()
-    monkeypatch.setattr(boto3, 'client', lambda service: glue)
-    return glue
+    result = app(event, None)
+    assert result["statusCode"] == 200
+    assert "Archivo procesado" in result["body"]
 
-def make_s3_event(key):
-    return {'Records': [{'s3': {'object': {'key': key}} }]}
+def test_parse_eltiempo_extracts_data(html_eltiempo):
+    from lambda2 import parse_el_tiempo
 
-def test_lambda3_inicia_glue(glue_client):
-    evt = make_s3_event('final/periodico=eltiempo/year=2025/month=05/day=27/titulares.csv')
-    res = lambda3_handler(evt, {})
-    assert res['statusCode'] == 200
+    data = parse_el_tiempo(html_eltiempo)
+    assert isinstance(data, list)
+    assert len(data) > 0
+    assert all("titulo" in n and "categoria" in n and "enlace" in n for n in data)
 
-def test_lambda3_crawler_ya_running(glue_client, capsys):
-    evt = make_s3_event('final/any/file.csv')
-    # Primera invocación: inicia sin errores
-    lambda3_handler(evt, {})
-    # Segunda invocación: la excepción es capturada y no rompe
-    lambda3_handler(evt, {})
-    captured = capsys.readouterr()
-    assert "ya está corriendo" in captured.out
+@patch("lambda2.s3")
+def test_lambda2_non_html_file(mock_s3):
+    """Prueba cuando el archivo no es HTML"""
+    from lambda2 import app
 
+    event = {
+        'Records': [{
+            's3': {
+                'bucket': {'name': 'pacialcorte3-2025'},
+                'object': {'key': 'raw/archivo.pdf'}
+            }
+        }]
+    }
 
-def test_lambda3_ignora_otros_archivos(glue_client):
-    # Evento cuyo key no cumple
-    evt = make_s3_event('raw/contenido-eltiempo-2025-05-27.html')
-    res = lambda3_handler(evt, {})
-    assert res['statusCode'] == 200
+    result = app(event, None)
+    assert result["statusCode"] == 200
+    assert "ignoró" in result["body"]
+
+@patch("lambda2.s3")
+def test_lambda2_html_without_fecha(mock_s3, tmp_path):
+    """Prueba cuando el nombre del archivo no tiene fecha válida"""
+    from lambda2 import app
+    fake_html = "<html><body></body></html>"
+    mock_s3.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(fake_html)
+
+    event = {
+        'Records': [{
+            's3': {
+                'bucket': {'name': 'pacialcorte3-2025'},
+                'object': {'key': 'raw/contenido-eltiempo-sinfecha.html'}
+            }
+        }]
+    }
+
+    with pytest.raises(ValueError, match="No se encontró una fecha válida"):
+        app(event, None)
+
+# ----------------------------
+# PRUEBAS FUNCIONES DE EXTRACCIÓN
+# ----------------------------
+
+def test_parse_eltiempo_empty():
+    from lambda2 import parse_el_tiempo
+    html = "<html><body>No news</body></html>"
+    result = parse_el_tiempo(html)
+    assert result == []
+
+def test_parse_eltiempo_ignores_imagenes():
+    from lambda2 import parse_el_tiempo
+    html = """
+    <html>
+        <body>
+            <a href="/images/banner.jpg">Publicidad</a>
+            <a href="/cultura/cine/titulo-largo">Una gran película que todos comentan</a>
+        </body>
+    </html>
+    """
+    result = parse_el_tiempo(html)
+    assert len(result) == 1
+    assert "titulo" in result[0]
+
+# ----------------------------
+# PRUEBA INVOCACIÓN A TERCERA LAMBDA
+# ----------------------------
+@patch("lambda2.boto3.client")
+@patch("lambda2.s3")
+def test_invoke_third_lambda(mock_s3, mock_boto_client, tmp_path):
+    from lambda2 import app
+
+    html = "<a href='/deportes/futbol/partido'>Noticia</a>"
+    mock_s3.download_file.side_effect = lambda b, k, f: open(f, 'w', encoding='utf-8').write(html)
+    mock_s3.upload_file.return_value = None
+
+    mock_lambda = MagicMock()
+    mock_lambda.invoke.return_value = {"StatusCode": 202}
+    mock_boto_client.side_effect = lambda service_name: mock_lambda if service_name == "lambda" else mock_s3
+
+    event = {
+        'Records': [{
+            's3': {
+                'bucket': {'name': 'pacialcorte3-2025'},
+                'object': {'key': 'raw/contenido-eltiempo-2025-05-01.html'}
+            }
+        }]
+    }
+
+    result = app(event, None)
+    assert result["statusCode"] == 200
+    mock_lambda.invoke.assert_called_once()

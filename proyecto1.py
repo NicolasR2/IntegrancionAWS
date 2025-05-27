@@ -303,4 +303,3 @@ def extraer_noticias_publimetro(html_content):
             titulos_vistos.add(noticia['titular'])
 
     return noticias_unicas
-
