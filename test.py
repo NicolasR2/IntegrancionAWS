@@ -9,7 +9,7 @@ from botocore.exceptions import ClientError
 # --------- Lambda 1: descarga diarios y sube a S3 ---------
 
 # Supondremos que tu primer archivo se llama lambda1.py
-from proyecto import app as lambda1_app
+from proyecto.py import app as lambda1_app
 
 class DummyResponse:
     def __init__(self, status_code, content=b""):
