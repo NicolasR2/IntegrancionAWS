@@ -10,7 +10,7 @@ from proyecto import app, parse_el_tiempo, extraer_noticias_publimetro
 @pytest.fixture
 def html_eltiempo_minimo():
     """HTML de El Tiempo con dos enlaces válidos."""
-    return b'''
+    return '''
     <html><body>
       <a href="/deportes/futbol/2025-05-28/juego">Partido emocionante</a>
       <article class="headline"><a href="/mundo/politica/2025-05-28/noticia">Noticia de política nacional</a></article>
@@ -28,7 +28,7 @@ def html_eltiempo_vacio():
 @pytest.fixture
 def html_publimetro_minimo():
     """HTML de Publimetro con noticias principales y secundarias."""
-    return b'''
+    return '''
     <html><body>
       <article class="b-top-table-list-xl">
         <h2 class="c-heading"><a class="c-link" href="/noticias/2025-05-28/titular1">Titular Publimetro 1</a></h2>
