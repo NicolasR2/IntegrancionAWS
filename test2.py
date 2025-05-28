@@ -88,6 +88,7 @@ def mock_glue_client():
     """Mock para simular cliente de Glue"""
     mock_glue = MagicMock()
     mock_glue.start_crawler.return_value = {'ResponseMetadata': {'HTTPStatusCode': 200}}
+    mock_glue.exceptions.CrawlerRunningException = ClientError
     return mock_glue
 
 @patch('proyecto2.boto3.client')
@@ -125,11 +126,11 @@ def test_lambda_handler_crawler_already_running(mock_boto3_client, s3_event_csv_
     mock_glue = MagicMock()
     
     # Simular excepción de crawler ya corriendo
-    from botocore.exceptions import ClientError
     error_response = {'Error': {'Code': 'CrawlerRunningException'}}
-    mock_glue.start_crawler.side_effect = ClientError(error_response, 'StartCrawler')
-    mock_glue.exceptions.CrawlerRunningException = ClientError
     
+    mock_glue.exceptions.CrawlerRunningException = ClientError 
+    mock_glue.start_crawler.side_effect = ClientError(error_response, 'StartCrawler')
+   
     mock_boto3_client.return_value = mock_glue
     
     result = lambda_handler(s3_event_csv_valid, mock_context)
@@ -147,6 +148,7 @@ def test_lambda_handler_glue_error(mock_boto3_client, s3_event_csv_valid,
     
     # Simular error general
     mock_glue.start_crawler.side_effect = Exception("Error de Glue")
+    mock_glue.exceptions.CrawlerRunningException = ClientError # Still good practice to include
     mock_boto3_client.return_value = mock_glue
     
     result = lambda_handler(s3_event_csv_valid, mock_context)
