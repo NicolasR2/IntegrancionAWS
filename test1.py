@@ -1,10 +1,26 @@
 import pytest
-import boto3
-import pandas as pd
 from unittest.mock import patch, MagicMock, mock_open
 from datetime import datetime
 import json
-from proyecto1 import app, parse_el_tiempo, extraer_noticias_publimetro
+import pandas as pd # Ensure pandas is imported as it's used in fixtures
+
+# --- IMPORTANT CHANGE HERE ---
+# Patch boto3.client BEFORE importing proyecto1
+# This ensures that when proyecto1.s3 is initialized, it uses the mocked client.
+with patch('boto3.client') as mock_boto3_client_pre_import:
+    # Configure the mock client that will be returned when boto3.client is called
+    mock_s3_instance_for_global = MagicMock()
+    mock_s3_instance_for_global.download_file.return_value = None
+    mock_s3_instance_for_global.upload_file.return_value = None
+    mock_s3_instance_for_global.head_object.return_value = {'ContentLength': 123, 'ContentType': 'text/html'} # Add head_object mock here too
+    
+    # Set the return value for the initial 's3' client creation in proyecto1.py
+    mock_boto3_client_pre_import.return_value = mock_s3_instance_for_global
+
+    # Now import proyecto1. The global 's3' client in proyecto1 will be the mocked one.
+    from proyecto1 import app, parse_el_tiempo, extraer_noticias_publimetro
+    # --- END IMPORTANT CHANGE ---
+
 
 @pytest.fixture
 def mock_s3_event_eltiempo():
@@ -102,7 +118,8 @@ def sample_publimetro_html():
                     <h3 class="c-heading">
                         <a class="c-link" href="/noticias/cultura">Eventos culturales</a>
                     </h3>
-                </article>
+                </h3 >
+            </article>
             </div>
             <article class="b-top-table-list-small">
                 <h2 class="c-heading">
@@ -126,12 +143,12 @@ def sample_empty_html():
     """
 
 @pytest.fixture
-def mock_s3_client():
-    """Mock para simular interacciones con S3"""
+def mock_s3_client_for_test_functions():
+    """Mock para simular interacciones con S3 para las funciones de prueba.
+       No es para el cliente global de proyecto1.py"""
     mock_s3 = MagicMock()
     mock_s3.download_file.return_value = None
     mock_s3.upload_file.return_value = None
-    # Mock the head_object method as well
     mock_s3.head_object.return_value = {'ContentLength': 123, 'ContentType': 'text/html'}
     return mock_s3
 
@@ -142,86 +159,92 @@ def mock_lambda_client():
     mock_lambda.invoke.return_value = {'StatusCode': 200}
     return mock_lambda
 
-@patch('proyecto1.boto3.client')
+
+# Remove @patch('proyecto1.boto3.client') from here, as we already patched it globally.
 @patch('proyecto1.time.sleep')
 @patch('builtins.open', new_callable=mock_open)
-def test_app_eltiempo_success(mock_file_open, mock_sleep, mock_boto3_client,
+def test_app_eltiempo_success(mock_file_open, mock_sleep,
                               mock_s3_event_eltiempo, mock_context,
-                              sample_eltiempo_html, mock_s3_client, mock_lambda_client):
+                              sample_eltiempo_html, mock_lambda_client): # Removed mock_boto3_client, mock_s3_client
     """Prueba procesamiento exitoso de archivo de El Tiempo"""
-    # Configurar mocks
-    def client_side_effect(service):
-        if service == 's3':
-            return mock_s3_client
-        elif service == 'lambda':
-            return mock_lambda_client
-    
-    mock_boto3_client.side_effect = client_side_effect
-    mock_file_open.return_value.read.return_value = sample_eltiempo_html
-    
-    # Ejecutar función
-    result = app(mock_s3_event_eltiempo, mock_context)
-    
-    # Verificaciones
-    assert result['statusCode'] == 200
-    assert 'final/periodico=eltiempo/year=2025/month=05/day=28/titulares.csv' in result['body']
-    mock_s3_client.download_file.assert_called_once()
-    mock_s3_client.upload_file.assert_called_once()
-    mock_lambda_client.invoke.assert_called_once()
+    # The global s3 client in proyecto1 is already mocked from the pre-import patch.
+    # We only need to mock the lambda client for the app function.
+    with patch('proyecto1.boto3.client') as mock_boto3_client_in_test:
+        def client_side_effect(service):
+            if service == 'lambda':
+                return mock_lambda_client
+            # For 's3', we use the globally mocked client from the pre-import patch.
+            # This 'boto3.client('s3')' call within `app` will correctly return the globally mocked s3.
+            return mock_s3_instance_for_global # Use the instance mocked earlier
 
-@patch('proyecto1.boto3.client')
+        mock_boto3_client_in_test.side_effect = client_side_effect
+        mock_file_open.return_value.read.return_value = sample_eltiempo_html
+        
+        # Ejecutar función
+        result = app(mock_s3_event_eltiempo, mock_context)
+        
+        # Verificaciones
+        assert result['statusCode'] == 200
+        assert 'final/periodico=eltiempo/year=2025/month=05/day=28/titulares.csv' in result['body']
+        mock_s3_instance_for_global.download_file.assert_called_once()
+        mock_s3_instance_for_global.upload_file.assert_called_once()
+        mock_lambda_client.invoke.assert_called_once()
+
+
 @patch('proyecto1.time.sleep')
 @patch('builtins.open', new_callable=mock_open)
-def test_app_publimetro_success(mock_file_open, mock_sleep, mock_boto3_client,
+def test_app_publimetro_success(mock_file_open, mock_sleep,
                                mock_s3_event_publimetro, mock_context,
-                               sample_publimetro_html, mock_s3_client, mock_lambda_client):
+                               sample_publimetro_html, mock_lambda_client): # Removed mock_boto3_client, mock_s3_client
     """Prueba procesamiento exitoso de archivo de Publimetro"""
-    # Configurar mocks
-    def client_side_effect(service):
-        if service == 's3':
-            return mock_s3_client
-        elif service == 'lambda':
-            return mock_lambda_client
-    
-    mock_boto3_client.side_effect = client_side_effect
-    mock_file_open.return_value.read.return_value = sample_publimetro_html
-    
-    # Ejecutar función
-    result = app(mock_s3_event_publimetro, mock_context)
-    
-    # Verificaciones
-    assert result['statusCode'] == 200
-    assert 'final/periodico=publimetro/year=2025/month=05/day=28/titulares.csv' in result['body']
-    mock_s3_client.download_file.assert_called_once()
-    mock_s3_client.upload_file.assert_called_once()
-    # It's good practice to assert that invoke is called here too, as it should be part of the flow.
-    mock_lambda_client.invoke.assert_called_once()
+    with patch('proyecto1.boto3.client') as mock_boto3_client_in_test:
+        def client_side_effect(service):
+            if service == 'lambda':
+                return mock_lambda_client
+            return mock_s3_instance_for_global # Use the instance mocked earlier
 
+        mock_boto3_client_in_test.side_effect = client_side_effect
+        mock_file_open.return_value.read.return_value = sample_publimetro_html
+        
+        # Ejecutar función
+        result = app(mock_s3_event_publimetro, mock_context)
+        
+        # Verificaciones
+        assert result['statusCode'] == 200
+        assert 'final/periodico=publimetro/year=2025/month=05/day=28/titulares.csv' in result['body']
+        mock_s3_instance_for_global.download_file.assert_called_once()
+        mock_s3_instance_for_global.upload_file.assert_called_once()
+        mock_lambda_client.invoke.assert_called_once()
 
-def test_app_non_html_file(mock_s3_event_non_html, mock_context):
+# For the following tests, we still need to patch boto3.client if it's called
+# within the function under test (app), and we're not relying on the global.
+# It's better to explicitly patch it within each test or use the global mock consistently.
+
+# Simplified patching for the remaining tests that only use the S3 client globally
+@patch('proyecto1.boto3.client', return_value=mock_s3_instance_for_global)
+def test_app_non_html_file(mock_boto3_client, mock_s3_event_non_html, mock_context):
     """Prueba que se ignoren archivos que no son HTML"""
     result = app(mock_s3_event_non_html, mock_context)
     
     assert result['statusCode'] == 200
     assert 'Se ignoró el archivo' in result['body']
 
-@patch('proyecto1.boto3.client')
+@patch('proyecto1.boto3.client', return_value=mock_s3_instance_for_global)
 @patch('builtins.open', new_callable=mock_open)
 def test_app_no_news_extracted(mock_file_open, mock_boto3_client,
                                mock_s3_event_eltiempo, mock_context,
-                               sample_empty_html, mock_s3_client):
+                               sample_empty_html):
     """Prueba cuando no se extraen noticias del HTML"""
-    mock_boto3_client.return_value = mock_s3_client
     mock_file_open.return_value.read.return_value = sample_empty_html
     
     # Ejecutar función y esperar excepción
     with pytest.raises(ValueError, match="No se extrajo ninguna noticia"):
         app(mock_s3_event_eltiempo, mock_context)
 
-@patch('proyecto1.boto3.client')
+@patch('proyecto1.boto3.client', return_value=mock_s3_instance_for_global)
 @patch('builtins.open', new_callable=mock_open)
 def test_app_invalid_date_format(mock_file_open, mock_boto3_client, mock_context,
-                                 sample_eltiempo_html, mock_s3_client):
+                                 sample_eltiempo_html):
     """Prueba con formato de fecha inválido en el nombre del archivo"""
     # Event con nombre de archivo sin fecha válida
     event_invalid_date = {
@@ -233,17 +256,16 @@ def test_app_invalid_date_format(mock_file_open, mock_boto3_client, mock_context
         }]
     }
     
-    mock_boto3_client.return_value = mock_s3_client
     mock_file_open.return_value.read.return_value = sample_eltiempo_html
     
     # Ejecutar función y esperar excepción
     with pytest.raises(ValueError, match="No se encontró una fecha válida"):
         app(event_invalid_date, mock_context)
 
-@patch('proyecto1.boto3.client')
+@patch('proyecto1.boto3.client', return_value=mock_s3_instance_for_global)
 @patch('builtins.open', new_callable=mock_open)
 def test_app_unknown_newspaper(mock_file_open, mock_boto3_client, mock_context,
-                               sample_eltiempo_html, mock_s3_client):
+                               sample_eltiempo_html):
     """Prueba con periódico desconocido"""
     # Event con nombre que no contiene 'eltiempo' ni 'publimetro'
     event_unknown = {
@@ -255,7 +277,6 @@ def test_app_unknown_newspaper(mock_file_open, mock_boto3_client, mock_context,
         }]
     }
     
-    mock_boto3_client.return_value = mock_s3_client
     mock_file_open.return_value.read.return_value = sample_eltiempo_html
     
     # Ejecutar función y esperar excepción
