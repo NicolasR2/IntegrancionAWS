@@ -58,6 +58,7 @@ jobs:
           source venv/bin/activate
           pytest test.py
           pytest test1.py
+          pytest test2.py
           
       - name: update dev y dev2
         run: |
