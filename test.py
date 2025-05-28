@@ -3,7 +3,7 @@ import os
 import boto3
 from io import BytesIO
 from unittest.mock import patch, MagicMock
-from proyecto import app, parse_el_tiempo, extraer_noticias_publimetro
+from proyecto1 import app, parse_el_tiempo, extraer_noticias_publimetro
 
 # --- Fixtures HTML de ejemplo ---
 
