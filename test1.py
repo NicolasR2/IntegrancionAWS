@@ -64,13 +64,15 @@ def sample_eltiempo_html():
                 <a href="/economia/inflacion/datos-economia">Nuevos datos sobre economía nacional</a>
             </div>
             <script type="application/ld+json">
-            {
-                "@type": "NewsArticle",
-                "headline": "Noticia desde JSON-LD",
-                "mainEntityOfPage": {
-                    "@id": "https://www.eltiempo.com/tecnologia/ciencia/descubrimiento-cientifico"
+            [
+                {
+                    "@type": "NewsArticle",
+                    "headline": "Noticia desde JSON-LD",
+                    "mainEntityOfPage": {
+                        "@id": "https://www.eltiempo.com/tecnologia/ciencia/descubrimiento-cientifico"
+                    }
                 }
-            }
+            ]
             </script>
         </body>
     </html>
@@ -129,6 +131,7 @@ def mock_s3_client():
     mock_s3 = MagicMock()
     mock_s3.download_file.return_value = None
     mock_s3.upload_file.return_value = None
+    # Mock the head_object method as well
     mock_s3.head_object.return_value = {'ContentLength': 123, 'ContentType': 'text/html'}
     return mock_s3
 
@@ -142,8 +145,8 @@ def mock_lambda_client():
 @patch('proyecto1.boto3.client')
 @patch('proyecto1.time.sleep')
 @patch('builtins.open', new_callable=mock_open)
-def test_app_eltiempo_success(mock_file_open, mock_sleep, mock_boto3_client, 
-                              mock_s3_event_eltiempo, mock_context, 
+def test_app_eltiempo_success(mock_file_open, mock_sleep, mock_boto3_client,
+                              mock_s3_event_eltiempo, mock_context,
                               sample_eltiempo_html, mock_s3_client, mock_lambda_client):
     """Prueba procesamiento exitoso de archivo de El Tiempo"""
     # Configurar mocks
@@ -191,7 +194,9 @@ def test_app_publimetro_success(mock_file_open, mock_sleep, mock_boto3_client,
     assert 'final/periodico=publimetro/year=2025/month=05/day=28/titulares.csv' in result['body']
     mock_s3_client.download_file.assert_called_once()
     mock_s3_client.upload_file.assert_called_once()
+    # It's good practice to assert that invoke is called here too, as it should be part of the flow.
     mock_lambda_client.invoke.assert_called_once()
+
 
 def test_app_non_html_file(mock_s3_event_non_html, mock_context):
     """Prueba que se ignoren archivos que no son HTML"""
@@ -203,8 +208,8 @@ def test_app_non_html_file(mock_s3_event_non_html, mock_context):
 @patch('proyecto1.boto3.client')
 @patch('builtins.open', new_callable=mock_open)
 def test_app_no_news_extracted(mock_file_open, mock_boto3_client,
-                              mock_s3_event_eltiempo, mock_context,
-                              sample_empty_html, mock_s3_client):
+                               mock_s3_event_eltiempo, mock_context,
+                               sample_empty_html, mock_s3_client):
     """Prueba cuando no se extraen noticias del HTML"""
     mock_boto3_client.return_value = mock_s3_client
     mock_file_open.return_value.read.return_value = sample_empty_html
@@ -216,7 +221,7 @@ def test_app_no_news_extracted(mock_file_open, mock_boto3_client,
 @patch('proyecto1.boto3.client')
 @patch('builtins.open', new_callable=mock_open)
 def test_app_invalid_date_format(mock_file_open, mock_boto3_client, mock_context,
-                                sample_eltiempo_html, mock_s3_client):
+                                 sample_eltiempo_html, mock_s3_client):
     """Prueba con formato de fecha inválido en el nombre del archivo"""
     # Event con nombre de archivo sin fecha válida
     event_invalid_date = {
@@ -238,7 +243,7 @@ def test_app_invalid_date_format(mock_file_open, mock_boto3_client, mock_context
 @patch('proyecto1.boto3.client')
 @patch('builtins.open', new_callable=mock_open)
 def test_app_unknown_newspaper(mock_file_open, mock_boto3_client, mock_context,
-                              sample_eltiempo_html, mock_s3_client):
+                               sample_eltiempo_html, mock_s3_client):
     """Prueba con periódico desconocido"""
     # Event con nombre que no contiene 'eltiempo' ni 'publimetro'
     event_unknown = {
