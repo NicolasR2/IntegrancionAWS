@@ -129,6 +129,7 @@ def mock_s3_client():
     mock_s3 = MagicMock()
     mock_s3.download_file.return_value = None
     mock_s3.upload_file.return_value = None
+    mock_s3.head_object.return_value = {'ContentLength': 123, 'ContentType': 'text/html'}
     return mock_s3
 
 @pytest.fixture
@@ -190,6 +191,7 @@ def test_app_publimetro_success(mock_file_open, mock_sleep, mock_boto3_client,
     assert 'final/periodico=publimetro/year=2025/month=05/day=28/titulares.csv' in result['body']
     mock_s3_client.download_file.assert_called_once()
     mock_s3_client.upload_file.assert_called_once()
+    mock_lambda_client.invoke.assert_called_once()
 
 def test_app_non_html_file(mock_s3_event_non_html, mock_context):
     """Prueba que se ignoren archivos que no son HTML"""
