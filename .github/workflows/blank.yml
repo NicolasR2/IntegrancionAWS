@@ -66,3 +66,4 @@ jobs:
           zappa update dev
           zappa update dev2
           zappa update dev3
+          zappa update dev4
