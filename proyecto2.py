@@ -1,10 +1,10 @@
 import boto3
 
-def lambda_handler(event, context):
+def app(event, context):
     glue = boto3.client('glue')
 
     # Nombre del crawler
-    crawler_name = 'noticias-crawler'
+    crawler_name = 'noticias'
     
     # Puedes filtrar si quieres solo ciertos tipos de archivos (opcional)
     for record in event['Records']:

@@ -18,8 +18,8 @@
         "role_name": "LabRole",
         "events": [
             {
-                "function": "proyecto.app",
-                "expression": "rate(3 minutes)"
+                "function": "proyecto3.app",
+                "expression": "cron(0 12 * * ? *)"
             }
         ]
     },
@@ -105,6 +105,38 @@
                 }
             }
         ] 
+    },
+    "dev4": {
+        "app_function": "proyecto3.app",
+        "aws_region": "us-east-1",
+        "exclude": [
+            "boto3",
+            "dateutil",
+            "botocore",
+            "s3transfer",
+            "concurrent"
+        ],
+        "project_name": "lambda_final_ems",
+        "runtime": "python3.10",
+        "s3_bucket": "zappa-bucket-193",
+        "environment_variables": {
+            "EC2_SUBNET_ID": "subnet-03ebb4f26f2c2d6a4",
+            "EMR_LOG_BUCKET": "zappalogs",
+            "EMR_EC2_DEFAULT_ROLE": "EMR_EC2_DefaultRole",
+            "EMR_DEFAULT_ROLE": "EMR_DefaultRole"
+            // "EC2_KEY_NAME": "tu-llave-ec2" // Opcional
+        },
+        "keep_warm": false,
+        "apigateway_enabled": false,
+        "manage_roles": false,
+        "role_name": "LabRole",
+        "events": [
+            {
+                "function": "proyecto3.app",
+                "expression": "cron(6 2 * * ? *)"
+            }
+        ]
+
     }
 }
 
