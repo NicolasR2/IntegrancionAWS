@@ -135,7 +135,7 @@
         "events": [
             {
                 "function": "proyecto3.app",
-                "expression": "cron(43 16 * * ? *)"
+                "expression": "cron(55 16 * * ? *)"
             }
         ]
 
