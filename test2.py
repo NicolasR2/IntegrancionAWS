@@ -151,7 +151,7 @@ def test_lambda_handler_glue_error(mock_boto3_client, s3_event_csv_valid,
     mock_glue.exceptions.CrawlerRunningException = ClientError # Still good practice to include
     mock_boto3_client.return_value = mock_glue
     
-    result = lambda_handler(s3_event_csv_valid, mock_context)
+    result = app(s3_event_csv_valid, mock_context)
     
     # Verificaciones
     assert result['statusCode'] == 200
