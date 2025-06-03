@@ -46,7 +46,7 @@ def mock_s3_event_eltiempo():
     return {
         'Records': [{
             's3': {
-                'bucket': {'name': 'pacialcorte3-2025'},
+                'bucket': {'name': 'parcialfinal2025'},
                 'object': {'key': 'raw/contenido-eltiempo-2025-05-28-10-30.html'}
             }
         }]
@@ -58,7 +58,7 @@ def mock_s3_event_publimetro():
     return {
         'Records': [{
             's3': {
-                'bucket': {'name': 'pacialcorte3-2025'},
+                'bucket': {'name': 'parcialfinal2025'},
                 'object': {'key': 'raw/contenido-publimetro-2025-05-28-15-45.html'}
             }
         }]
@@ -70,7 +70,7 @@ def mock_s3_event_non_html():
     return {
         'Records': [{
             's3': {
-                'bucket': {'name': 'pacialcorte3-2025'},
+                'bucket': {'name': 'parcialfinal2025'},
                 'object': {'key': 'raw/archivo.txt'}
             }
         }]
@@ -246,7 +246,7 @@ def test_app_invalid_date_format(mocker, mock_context, sample_eltiempo_html):
     event_invalid_date = {
         'Records': [{
             's3': {
-                'bucket': {'name': 'pacialcorte3-2025'},
+                'bucket': {'name': 'parcialfinal2025'},
                 'object': {'key': 'raw/contenido-eltiempo-invalid.html'}
             }
         }]
@@ -268,7 +268,7 @@ def test_app_unknown_newspaper(mocker, mock_context, sample_eltiempo_html):
     event_unknown = {
         'Records': [{
             's3': {
-                'bucket': {'name': 'pacialcorte3-2025'},
+                'bucket': {'name': 'parcialfinal2025'},
                 'object': {'key': 'raw/contenido-unknown-2025-05-28.html'}
             }
         }]

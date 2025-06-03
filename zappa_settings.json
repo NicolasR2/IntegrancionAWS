@@ -21,7 +21,7 @@
         "events": [
             {
                 "function": "proyecto.app",
-                "expression": "cron(0 15 * * ? *)"
+                "expression": "cron(11 15 * * ? *)"
             }
         ]
     },
