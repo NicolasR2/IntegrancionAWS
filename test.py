@@ -202,7 +202,7 @@ def test_app_correct_s3_keys(mock_datetime, mock_requests, mock_s3,
     # Verificar que las keys sean correctas
     expected_calls = [
         {
-            'Bucket': 'pacialcorte3-2025',
+            'Bucket': 'parcialfinal2025',
             'Key': 'raw/contenido-eltiempo-2025-05-28-15-45.html',
             'Body': sample_eltiempo_html
         },
@@ -217,6 +217,6 @@ def test_app_correct_s3_keys(mock_datetime, mock_requests, mock_s3,
     # Verificar que se llamó con los parámetros correctos
     for call in mock_s3.put_object.call_args_list:
         call_kwargs = call[1]
-        assert call_kwargs['Bucket'] == 'pacialcorte3-2025'
+        assert call_kwargs['Bucket'] == 'parcialfinal2025'
         assert call_kwargs['Key'].startswith('raw/contenido-')
         assert '2025-05-28-15-45' in call_kwargs['Key']
