@@ -103,7 +103,7 @@ def test_lambda_handler_single_csv_success(mock_boto3_client, s3_event_csv_valid
     assert result['statusCode'] == 200
     assert result['body'] == 'Evento procesado.'
     mock_boto3_client.assert_called_once_with('glue')
-    mock_glue_client.start_crawler.assert_called_once_with(Name='noticias-crawler')
+    mock_glue_client.start_crawler.assert_called_once_with(Name='noticias')
 
 @patch('proyecto2.boto3.client')
 def test_lambda_handler_multiple_csv_success(mock_boto3_client, s3_event_multiple_csv,
@@ -198,7 +198,7 @@ def test_lambda_handler_mixed_files(mock_boto3_client, s3_event_mixed_files,
     assert result['statusCode'] == 200
     assert result['body'] == 'Evento procesado.'
     # Solo debe intentar iniciar el crawler una vez (para el archivo válido)
-    mock_glue_client.start_crawler.assert_called_once_with(Name='noticias-crawler')
+    mock_glue_client.start_crawler.assert_called_once_with(Name='noticias')
 
 @patch('proyecto2.boto3.client')
 def test_lambda_handler_empty_event(mock_boto3_client, mock_context, mock_glue_client):
@@ -249,7 +249,7 @@ def test_lambda_handler_crawler_name_consistency(mock_boto3_client, s3_event_csv
     app(s3_event_csv_valid, mock_context)
     
     # Verificar que se use el nombre correcto
-    mock_glue_client.start_crawler.assert_called_with(Name='noticias-crawler')
+    mock_glue_client.start_crawler.assert_called_with(Name='noticias')
 
 @patch('proyecto2.boto3.client')
 def test_lambda_handler_return_format(mock_boto3_client, s3_event_csv_valid,
