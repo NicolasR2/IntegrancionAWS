@@ -11,7 +11,7 @@
             "s3transfer",
             "concurrent"
         ],
-        "project_name": "casas",
+        "project_name": "lambda1",
         "runtime": "python3.10",
         "s3_bucket": "zappa-kpk1mm5he",
         "keep_warm": false,
