@@ -3,7 +3,7 @@ import requests
 from datetime import datetime
 
 s3 = boto3.client('s3')
-BUCKET = 'pacialcorte3-2025'
+BUCKET = 'parcialfinal2025'
 
 def app(event, context):
     now = datetime.utcnow()
