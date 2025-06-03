@@ -20,8 +20,8 @@
         "role_name": "LabRole",
         "events": [
             {
-                "function": "proyecto3.app",
-                "expression": "cron(53 14 * * ? *)"
+                "function": "proyecto.app",
+                "expression": "cron(0 15 * * ? *)"
             }
         ]
     },
