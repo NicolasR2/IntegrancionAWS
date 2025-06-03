@@ -33,7 +33,7 @@ def app(event, context):
     SERVICE_ROLE = os.environ.get('EMR_DEFAULT_ROLE', 'EMR_DefaultRole')
 
     # Ubicación del script de Spark en S3
-    SPARK_SCRIPT_S3_PATH = 's3://pacialcorte3-2025/app/script.py'
+    SPARK_SCRIPT_S3_PATH = 's3://parcialfinal2025/app/script.py'
     
     # Nombre para el clúster EMR (puedes hacerlo dinámico)
     cluster_name = f"EMR-Spark-Job-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
