@@ -122,7 +122,7 @@
         "runtime": "python3.10",
         "s3_bucket": "zappa-bucket-193",
         "environment_variables": {
-            "EC2_SUBNET_ID": "subnet-03ebb4f26f2c2d6a4",
+            "EC2_SUBNET_ID": "subnet-0c29323d781b497ea",
             "EMR_LOG_BUCKET": "zappalogs",
             "EMR_EC2_DEFAULT_ROLE": "EMR_EC2_DefaultRole",
             "EMR_DEFAULT_ROLE": "EMR_DefaultRole"
@@ -135,7 +135,7 @@
         "events": [
             {
                 "function": "proyecto3.app",
-                "expression": "cron(55 15 * * ? *)"
+                "expression": "cron(2 16 * * ? *)"
             }
         ]
 
