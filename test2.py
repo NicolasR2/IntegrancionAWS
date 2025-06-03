@@ -97,7 +97,7 @@ def test_lambda_handler_single_csv_success(mock_boto3_client, s3_event_csv_valid
     """Prueba inicio exitoso del crawler con un archivo CSV válido"""
     mock_boto3_client.return_value = mock_glue_client
     
-    result = lambda_handler(s3_event_csv_valid, mock_context)
+    result = app(s3_event_csv_valid, mock_context)
     
     # Verificaciones
     assert result['statusCode'] == 200
@@ -111,7 +111,7 @@ def test_lambda_handler_multiple_csv_success(mock_boto3_client, s3_event_multipl
     """Prueba con múltiples archivos CSV válidos"""
     mock_boto3_client.return_value = mock_glue_client
     
-    result = lambda_handler(s3_event_multiple_csv, mock_context)
+    result = app(s3_event_multiple_csv, mock_context)
     
     # Verificaciones
     assert result['statusCode'] == 200
@@ -133,7 +133,7 @@ def test_lambda_handler_crawler_already_running(mock_boto3_client, s3_event_csv_
    
     mock_boto3_client.return_value = mock_glue
     
-    result = lambda_handler(s3_event_csv_valid, mock_context)
+    result = app(s3_event_csv_valid, mock_context)
     
     # Verificaciones
     assert result['statusCode'] == 200
@@ -164,7 +164,7 @@ def test_lambda_handler_csv_wrong_folder(mock_boto3_client, s3_event_csv_wrong_f
     """Prueba que no se inicie el crawler para CSV en carpeta incorrecta"""
     mock_boto3_client.return_value = mock_glue_client
     
-    result = lambda_handler(s3_event_csv_wrong_folder, mock_context)
+    result = app(s3_event_csv_wrong_folder, mock_context)
     
     # Verificaciones
     assert result['statusCode'] == 200
@@ -178,7 +178,7 @@ def test_lambda_handler_non_csv_file(mock_boto3_client, s3_event_non_csv,
     """Prueba que no se inicie el crawler para archivos que no son CSV"""
     mock_boto3_client.return_value = mock_glue_client
     
-    result = lambda_handler(s3_event_non_csv, mock_context)
+    result = app(s3_event_non_csv, mock_context)
     
     # Verificaciones
     assert result['statusCode'] == 200
@@ -192,7 +192,7 @@ def test_lambda_handler_mixed_files(mock_boto3_client, s3_event_mixed_files,
     """Prueba con archivos mixtos (solo uno válido)"""
     mock_boto3_client.return_value = mock_glue_client
     
-    result = lambda_handler(s3_event_mixed_files, mock_context)
+    result = app(s3_event_mixed_files, mock_context)
     
     # Verificaciones
     assert result['statusCode'] == 200
@@ -206,7 +206,7 @@ def test_lambda_handler_empty_event(mock_boto3_client, mock_context, mock_glue_c
     empty_event = {'Records': []}
     mock_boto3_client.return_value = mock_glue_client
     
-    result = lambda_handler(empty_event, mock_context)
+    result = app(empty_event, mock_context)
     
     # Verificaciones
     assert result['statusCode'] == 200
@@ -246,7 +246,7 @@ def test_lambda_handler_crawler_name_consistency(mock_boto3_client, s3_event_csv
     """Prueba que se use consistentemente el nombre correcto del crawler"""
     mock_boto3_client.return_value = mock_glue_client
     
-    lambda_handler(s3_event_csv_valid, mock_context)
+    app(s3_event_csv_valid, mock_context)
     
     # Verificar que se use el nombre correcto
     mock_glue_client.start_crawler.assert_called_with(Name='noticias-crawler')
@@ -257,7 +257,7 @@ def test_lambda_handler_return_format(mock_boto3_client, s3_event_csv_valid,
     """Prueba formato de respuesta de la función Lambda"""
     mock_boto3_client.return_value = mock_glue_client
     
-    result = lambda_handler(s3_event_csv_valid, mock_context)
+    result = app(s3_event_csv_valid, mock_context)
     
     # Verificar estructura de respuesta
     assert isinstance(result, dict)
