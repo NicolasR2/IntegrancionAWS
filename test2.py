@@ -2,7 +2,7 @@ import pytest
 import boto3
 from unittest.mock import patch, MagicMock
 from botocore.exceptions import ClientError
-from proyecto2 import lambda_handler
+from proyecto2 import app
 
 @pytest.fixture
 def mock_context():
